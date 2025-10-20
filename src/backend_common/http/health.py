@@ -14,7 +14,6 @@ from typing import Dict, List, Optional
 from ..models.health import HealthResponse, HealthStatus
 from .client import HTTPClient
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -47,7 +46,9 @@ class HealthChecker:
         self._running = False
         self._task: Optional[asyncio.Task] = None
 
-    async def check_service_health(self, service_name: str, url: str) -> HealthResponse:
+    async def check_service_health(
+        self, service_name: str, url: str
+    ) -> HealthResponse:
         """
         Check health of a single service.
 
@@ -155,7 +156,9 @@ class HealthChecker:
                 logger.error(f"Error in health monitoring loop: {e}")
                 await asyncio.sleep(self.check_interval)
 
-    def get_service_status(self, service_name: str) -> Optional[HealthResponse]:
+    def get_service_status(
+        self, service_name: str
+    ) -> Optional[HealthResponse]:
         """Get current health status of a specific service."""
         return self.health_status.get(service_name)
 

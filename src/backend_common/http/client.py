@@ -8,15 +8,16 @@ circuit breaker pattern, and service authentication.
 
 import asyncio
 import logging
-from typing import Any, Dict, Optional, Union
-from urllib.parse import urljoin
+from typing import Any, Dict, Optional
 
 import httpx
 from httpx import AsyncClient, Response
 
-from ..exceptions import ServiceUnavailableError, TimeoutError as CustomTimeoutError
 from ..auth.manager import AuthManager
-
+from ..exceptions import (
+    ServiceUnavailableError,
+    TimeoutError,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -90,7 +91,7 @@ class HTTPClient:
 
         Raises:
             ServiceUnavailableError: If service is unavailable after retries
-            CustomTimeoutError: If request times out
+            TimeoutError: If request times out
         """
         last_exception = None
 
@@ -111,11 +112,13 @@ class HTTPClient:
             except httpx.TimeoutException as e:
                 last_exception = e
                 if attempt < self.max_retries:
-                    logger.warning(f"Request timeout on attempt {attempt + 1}, retrying...")
+                    logger.warning(
+                        f"Request timeout on attempt {attempt + 1}, retrying..."
+                    )
                     await asyncio.sleep(self.retry_delay * (attempt + 1))
                     continue
                 else:
-                    raise CustomTimeoutError(
+                    raise TimeoutError(
                         operation=f"{method} {url}",
                         timeout_seconds=self.timeout,
                     )
@@ -123,7 +126,9 @@ class HTTPClient:
             except httpx.RequestError as e:
                 last_exception = e
                 if attempt < self.max_retries:
-                    logger.warning(f"Request error on attempt {attempt + 1}: {e}")
+                    logger.warning(
+                        f"Request error on attempt {attempt + 1}: {e}"
+                    )
                     await asyncio.sleep(self.retry_delay * (attempt + 1))
                     continue
                 else:
@@ -146,7 +151,9 @@ class HTTPClient:
         **kwargs: Any,
     ) -> Response:
         """Make GET request."""
-        return await self._make_request("GET", url, params=params, headers=headers, **kwargs)
+        return await self._make_request(
+            "GET", url, params=params, headers=headers, **kwargs
+        )
 
     async def post(
         self,
@@ -157,7 +164,9 @@ class HTTPClient:
         **kwargs: Any,
     ) -> Response:
         """Make POST request."""
-        return await self._make_request("POST", url, json=json, data=data, headers=headers, **kwargs)
+        return await self._make_request(
+            "POST", url, json=json, data=data, headers=headers, **kwargs
+        )
 
     async def put(
         self,
@@ -168,7 +177,9 @@ class HTTPClient:
         **kwargs: Any,
     ) -> Response:
         """Make PUT request."""
-        return await self._make_request("PUT", url, json=json, data=data, headers=headers, **kwargs)
+        return await self._make_request(
+            "PUT", url, json=json, data=data, headers=headers, **kwargs
+        )
 
     async def delete(
         self,
@@ -177,7 +188,22 @@ class HTTPClient:
         **kwargs: Any,
     ) -> Response:
         """Make DELETE request."""
-        return await self._make_request("DELETE", url, headers=headers, **kwargs)
+        return await self._make_request(
+            "DELETE", url, headers=headers, **kwargs
+        )
+
+    async def patch(
+        self,
+        url: str,
+        json: Optional[Dict[str, Any]] = None,
+        data: Optional[Dict[str, Any]] = None,
+        headers: Optional[Dict[str, str]] = None,
+        **kwargs: Any,
+    ) -> Response:
+        """Make PATCH request."""
+        return await self._make_request(
+            "PATCH", url, json=json, data=data, headers=headers, **kwargs
+        )
 
 
 class ServiceClient(HTTPClient):
@@ -210,7 +236,9 @@ class ServiceClient(HTTPClient):
 
     async def _get_service_token(self) -> str:
         """Get or refresh service authentication token."""
-        if self.auth_manager and hasattr(self.auth_manager, 'create_service_token'):
+        if self.auth_manager and hasattr(
+            self.auth_manager, "create_service_token"
+        ):
             self._service_token = await self.auth_manager.create_service_token(
                 self.service_name
             )

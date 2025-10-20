@@ -9,12 +9,11 @@ JWT tokens for protected routes automatically.
 import logging
 from typing import Callable, Optional, Set
 
-from fastapi import Request, Response, HTTPException, status
+from fastapi import HTTPException, Request, Response, status
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from ..auth.manager import AuthManager
 from ..exceptions import UnauthorizedError
-
 
 logger = logging.getLogger(__name__)
 
@@ -49,7 +48,11 @@ class AuthMiddleware(BaseHTTPMiddleware):
         self.auth_manager = auth_manager
         self.protected_paths = protected_paths or set()
         self.exclude_paths = exclude_paths or {
-            "/health", "/metrics", "/docs", "/openapi.json", "/redoc"
+            "/health",
+            "/metrics",
+            "/docs",
+            "/openapi.json",
+            "/redoc",
         }
         self.require_auth_by_default = require_auth_by_default
 
@@ -74,7 +77,9 @@ class AuthMiddleware(BaseHTTPMiddleware):
         # Use default behavior
         return self.require_auth_by_default
 
-    async def dispatch(self, request: Request, call_next: Callable) -> Response:
+    async def dispatch(
+        self, request: Request, call_next: Callable
+    ) -> Response:
         """
         Process request with optional authentication.
 
@@ -109,10 +114,10 @@ class AuthMiddleware(BaseHTTPMiddleware):
             # Store user in request state for access in endpoints
             request.state.current_user = user
 
-            correlation_id = getattr(request.state, 'correlation_id', None)
+            correlation_id = getattr(request.state, "correlation_id", None)
             logger.info(
                 f"Authenticated user {user.username} for {path}",
-                extra={"correlation_id": correlation_id, "user_id": user.id}
+                extra={"correlation_id": correlation_id, "user_id": user.id},
             )
 
         except UnauthorizedError as e:

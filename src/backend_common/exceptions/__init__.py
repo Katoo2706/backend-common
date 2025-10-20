@@ -5,30 +5,47 @@ Common exception classes for backend services.
 This module provides standardized exception handling across all services.
 """
 
-from .base import BaseError
-from .business import (
-    BusinessLogicError,
-    NotFoundError,
+from .base import (
+    ErrorCode,
+    BaseError,
     ValidationError,
-    ConflictError,
+    NotFoundError,
+    UnauthorizedError,
     ForbiddenError,
 )
-from .http import (
-    UnauthorizedError,
-    BadRequestError,
+from .business import (
+    BusinessLogicError,
+    AlreadyExistsError,
+    ExternalServiceError,
     ServiceUnavailableError,
     TimeoutError,
 )
+from .http import (
+    HTTPError,
+    BadRequestError,
+    RateLimitExceededError,
+)
+from .handlers import setup_exception_handlers
 
 __all__ = [
+    # Error codes
+    "ErrorCode",
+    # Base exceptions
     "BaseError",
-    "BusinessLogicError",
-    "NotFoundError",
     "ValidationError",
-    "ConflictError",
-    "ForbiddenError",
+    "NotFoundError",
     "UnauthorizedError",
-    "BadRequestError",
+    "ForbiddenError",
+    # Business exceptions
+    "BusinessLogicError",
+    "AlreadyExistsError",
+    "ExternalServiceError",
     "ServiceUnavailableError",
     "TimeoutError",
+    # HTTP exceptions
+    "HTTPError",
+    "BadRequestError",
+    "RateLimitExceededError",
+    # Handlers
+    "setup_exception_handlers",
 ]

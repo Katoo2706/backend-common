@@ -19,6 +19,7 @@ from ..exceptions import UnauthorizedError
 
 class UserModel(BaseModel):
     """Base user model for authentication."""
+
     id: str
     username: str
     email: Optional[str] = None
@@ -30,12 +31,16 @@ class AuthManager(ABC):
     """Abstract base class for authentication managers."""
 
     @abstractmethod
-    async def authenticate_user(self, username: str, password: str) -> Optional[UserModel]:
+    async def authenticate_user(
+        self, username: str, password: str
+    ) -> Optional[UserModel]:
         """Authenticate user with credentials."""
         raise NotImplementedError
 
     @abstractmethod
-    async def create_access_token(self, user: UserModel, expires_delta: Optional[timedelta] = None) -> str:
+    async def create_access_token(
+        self, user: UserModel, expires_delta: Optional[timedelta] = None
+    ) -> str:
         """Create JWT access token for user."""
         raise NotImplementedError
 
@@ -67,7 +72,9 @@ class JWTAuthManager(AuthManager):
         self.access_token_expire_minutes = access_token_expire_minutes
         self.pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
-    def verify_password(self, plain_password: str, hashed_password: str) -> bool:
+    def verify_password(
+        self, plain_password: str, hashed_password: str
+    ) -> bool:
         """Verify password against hash."""
         return self.pwd_context.verify(plain_password, hashed_password)
 
@@ -75,7 +82,9 @@ class JWTAuthManager(AuthManager):
         """Generate password hash."""
         return self.pwd_context.hash(password)
 
-    async def authenticate_user(self, username: str, password: str) -> Optional[UserModel]:
+    async def authenticate_user(
+        self, username: str, password: str
+    ) -> Optional[UserModel]:
         """
         Authenticate user with username and password.
 
@@ -87,9 +96,7 @@ class JWTAuthManager(AuthManager):
         return None
 
     async def create_access_token(
-        self,
-        user: UserModel,
-        expires_delta: Optional[timedelta] = None
+        self, user: UserModel, expires_delta: Optional[timedelta] = None
     ) -> str:
         """Create JWT access token for authenticated user."""
         if expires_delta:
@@ -136,7 +143,9 @@ class JWTAuthManager(AuthManager):
 
     async def create_service_token(self, service_name: str) -> str:
         """Create service-to-service authentication token."""
-        expire = datetime.utcnow() + timedelta(hours=24)  # Service tokens last longer
+        expire = datetime.utcnow() + timedelta(
+            hours=24
+        )  # Service tokens last longer
 
         to_encode = {
             "sub": f"service:{service_name}",
@@ -164,4 +173,6 @@ class JWTAuthManager(AuthManager):
 
             return service_name
         except JWTError as e:
-            raise UnauthorizedError(f"Service token validation failed: {str(e)}")
+            raise UnauthorizedError(
+                f"Service token validation failed: {str(e)}"
+            )

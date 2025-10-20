@@ -6,7 +6,8 @@ Provides specialized configuration classes for different types
 of backend services with service-specific settings.
 """
 
-from typing import Optional, Dict, Any
+from typing import Dict, Optional
+
 from pydantic import Field
 
 from .base import BaseConfig
@@ -37,15 +38,21 @@ class ServiceConfig(BaseConfig):
     )
 
     # Monitoring and observability
-    metrics_enabled: bool = Field(default=True, description="Enable metrics collection")
+    metrics_enabled: bool = Field(
+        default=True, description="Enable metrics collection"
+    )
     metrics_port: int = Field(default=9090, description="Metrics server port")
-    tracing_enabled: bool = Field(default=True, description="Enable distributed tracing")
+    tracing_enabled: bool = Field(
+        default=True, description="Enable distributed tracing"
+    )
     tracing_endpoint: Optional[str] = Field(
         default=None, description="Tracing collector endpoint"
     )
 
     # Rate limiting
-    rate_limit_enabled: bool = Field(default=True, description="Enable rate limiting")
+    rate_limit_enabled: bool = Field(
+        default=True, description="Enable rate limiting"
+    )
     rate_limit_requests_per_minute: int = Field(
         default=60, description="Rate limit requests per minute"
     )
@@ -64,7 +71,9 @@ class ServiceConfig(BaseConfig):
     # Cache configuration
     cache_enabled: bool = Field(default=False, description="Enable caching")
     cache_ttl: int = Field(default=300, description="Cache TTL in seconds")
-    redis_url: Optional[str] = Field(default=None, description="Redis connection URL")
+    redis_url: Optional[str] = Field(
+        default=None, description="Redis connection URL"
+    )
 
     def get_service_endpoint(self, service_name: str) -> Optional[str]:
         """Get endpoint URL for a specific service."""

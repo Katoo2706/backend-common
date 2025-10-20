@@ -6,13 +6,12 @@ Provides structured logging for all HTTP requests and responses
 with timing, status codes, and correlation tracking.
 """
 
-import time
 import logging
+import time
 from typing import Callable
 
 from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
-
 
 logger = logging.getLogger(__name__)
 
@@ -44,9 +43,16 @@ class LoggingMiddleware(BaseHTTPMiddleware):
         super().__init__(app)
         self.log_request_body = log_request_body
         self.log_response_body = log_response_body
-        self.exclude_paths = exclude_paths or ["/health", "/metrics", "/docs", "/openapi.json"]
+        self.exclude_paths = exclude_paths or [
+            "/health",
+            "/metrics",
+            "/docs",
+            "/openapi.json",
+        ]
 
-    async def dispatch(self, request: Request, call_next: Callable) -> Response:
+    async def dispatch(
+        self, request: Request, call_next: Callable
+    ) -> Response:
         """
         Process request with logging.
 
@@ -62,7 +68,7 @@ class LoggingMiddleware(BaseHTTPMiddleware):
             return await call_next(request)
 
         start_time = time.time()
-        correlation_id = getattr(request.state, 'correlation_id', None)
+        correlation_id = getattr(request.state, "correlation_id", None)
 
         # Log request
         request_log = {
@@ -76,7 +82,11 @@ class LoggingMiddleware(BaseHTTPMiddleware):
             "remote_addr": request.client.host if request.client else None,
         }
 
-        if self.log_request_body and request.method in ["POST", "PUT", "PATCH"]:
+        if self.log_request_body and request.method in [
+            "POST",
+            "PUT",
+            "PATCH",
+        ]:
             try:
                 body = await request.body()
                 if body:
@@ -104,15 +114,21 @@ class LoggingMiddleware(BaseHTTPMiddleware):
         }
 
         # Add response headers for debugging
-        if hasattr(response, 'headers'):
+        if hasattr(response, "headers"):
             response_log["content_type"] = response.headers.get("content-type")
-            response_log["content_length"] = response.headers.get("content-length")
+            response_log["content_length"] = response.headers.get(
+                "content-length"
+            )
 
         # Log level based on status code
         if response.status_code >= 500:
-            logger.error("Request completed with server error", extra=response_log)
+            logger.error(
+                "Request completed with server error", extra=response_log
+            )
         elif response.status_code >= 400:
-            logger.warning("Request completed with client error", extra=response_log)
+            logger.warning(
+                "Request completed with client error", extra=response_log
+            )
         else:
             logger.info("Request completed successfully", extra=response_log)
 

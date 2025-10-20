@@ -1,117 +1,64 @@
 # src/backend_common/exceptions/http.py
-"""
-HTTP-specific exception classes.
-
-These exceptions represent errors that occur during HTTP communication
-and service interactions.
-"""
+"""HTTP-specific exception classes."""
 
 from typing import Any, Dict, Optional
-from .base import BaseError
+from .base import BaseError, ErrorCode
 
 
-class UnauthorizedError(BaseError):
-    """Raised when authentication fails or is missing."""
-
-    def __init__(
-        self,
-        reason: str = "Authentication required",
-        context: Optional[Dict[str, Any]] = None,
-        correlation_id: Optional[str] = None,
-    ) -> None:
-        """
-        Initialize unauthorized error.
-
-        Args:
-            reason: Reason for authentication failure
-            context: Additional context data
-            correlation_id: Request correlation ID
-        """
-        super().__init__(
-            message=f"Unauthorized: {reason}",
-            error_code="UNAUTHORIZED",
-            context=context or {"reason": reason},
-            correlation_id=correlation_id,
-        )
-
-
-class BadRequestError(BaseError):
-    """Raised when the request is malformed or invalid."""
+class HTTPError(BaseError):
+    """Base class for HTTP-related errors."""
 
     def __init__(
         self,
-        details: str,
+        message: str,
+        status_code: int,
+        error_code: ErrorCode = ErrorCode.INTERNAL_SERVER_ERROR,
+        headers: Optional[Dict[str, str]] = None,
         context: Optional[Dict[str, Any]] = None,
-        correlation_id: Optional[str] = None,
     ) -> None:
-        """
-        Initialize bad request error.
-
-        Args:
-            details: Details about what makes the request invalid
-            context: Additional context data
-            correlation_id: Request correlation ID
-        """
         super().__init__(
-            message=f"Bad request: {details}",
-            error_code="BAD_REQUEST",
-            context=context or {"details": details},
-            correlation_id=correlation_id,
+            message=message,
+            error_code=error_code,
+            status_code=status_code,
+            context=context,
         )
+        self.headers = headers or {}
 
 
-class ServiceUnavailableError(BaseError):
-    """Raised when a required service is unavailable."""
+class BadRequestError(HTTPError):
+    """Exception for 400 Bad Request errors."""
 
     def __init__(
         self,
-        service_name: str,
-        reason: str = "Service temporarily unavailable",
+        message: str = "Bad request",
         context: Optional[Dict[str, Any]] = None,
-        correlation_id: Optional[str] = None,
     ) -> None:
-        """
-        Initialize service unavailable error.
-
-        Args:
-            service_name: Name of the unavailable service
-            reason: Reason for unavailability
-            context: Additional context data
-            correlation_id: Request correlation ID
-        """
         super().__init__(
-            message=f"Service '{service_name}' unavailable: {reason}",
-            error_code="SERVICE_UNAVAILABLE",
-            context=context or {"service_name": service_name, "reason": reason},
-            correlation_id=correlation_id,
+            message=message,
+            status_code=400,
+            error_code=ErrorCode.VALIDATION_ERROR,
+            context=context,
         )
 
 
-class TimeoutError(BaseError):
-    """Raised when an operation times out."""
+class RateLimitExceededError(HTTPError):
+    """Exception for rate limit exceeded errors."""
 
     def __init__(
         self,
-        operation: str,
-        timeout_seconds: float,
+        message: str = "Rate limit exceeded",
+        retry_after: Optional[int] = None,
         context: Optional[Dict[str, Any]] = None,
-        correlation_id: Optional[str] = None,
     ) -> None:
-        """
-        Initialize timeout error.
+        headers = {}
+        if retry_after:
+            headers["Retry-After"] = str(retry_after)
 
-        Args:
-            operation: Description of the operation that timed out
-            timeout_seconds: Timeout duration in seconds
-            context: Additional context data
-            correlation_id: Request correlation ID
-        """
         super().__init__(
-            message=f"Operation '{operation}' timed out after {timeout_seconds}s",
-            error_code="OPERATION_TIMEOUT",
-            context=context or {
-                "operation": operation,
-                "timeout_seconds": timeout_seconds,
-            },
-            correlation_id=correlation_id,
+            message=message,
+            status_code=429,
+            error_code=ErrorCode.RATE_LIMIT_EXCEEDED,
+            headers=headers,
+            context=context,
         )
+        self.retry_after = retry_after

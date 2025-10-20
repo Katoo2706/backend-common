@@ -1,97 +1,112 @@
 # src/backend_common/utils/time.py
 """
-Time utility functions for consistent datetime handling.
+Time utilities for backend applications.
 
 Provides standardized time operations, timezone handling,
 and formatting utilities across all backend services.
 """
 
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone, timedelta
 from typing import Optional, Union
 import time
 
 
-class TimeUtils:
-    """
-    Utility class for time and datetime operations.
+def utc_now() -> datetime:
+    """Get current UTC datetime with timezone info."""
+    return datetime.now(timezone.utc)
 
-    Provides consistent datetime handling with timezone awareness,
-    formatting, and common time calculations.
-    """
 
-    @staticmethod
-    def utc_now() -> datetime:
-        """Get current UTC datetime with timezone info."""
-        return datetime.now(timezone.utc)
+def to_utc(dt: datetime) -> datetime:
+    """Convert datetime to UTC timezone."""
+    if dt.tzinfo is None:
+        # Assume naive datetime is UTC
+        return dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(timezone.utc)
 
-    @staticmethod
-    def to_utc(dt: datetime) -> datetime:
-        """Convert datetime to UTC timezone."""
-        if dt.tzinfo is None:
-            # Assume naive datetime is in UTC
-            return dt.replace(tzinfo=timezone.utc)
-        return dt.astimezone(timezone.utc)
 
-    @staticmethod
-    def from_timestamp(timestamp: Union[int, float]) -> datetime:
-        """Convert Unix timestamp to UTC datetime."""
-        return datetime.fromtimestamp(timestamp, tz=timezone.utc)
+def from_timestamp(timestamp: Union[int, float]) -> datetime:
+    """Convert Unix timestamp to UTC datetime."""
+    return datetime.fromtimestamp(timestamp, tz=timezone.utc)
 
-    @staticmethod
-    def to_timestamp(dt: datetime) -> float:
-        """Convert datetime to Unix timestamp."""
-        return dt.timestamp()
 
-    @staticmethod
-    def iso_format(dt: datetime) -> str:
-        """Format datetime as ISO 8601 string."""
-        return dt.isoformat()
+def to_timestamp(dt: datetime) -> float:
+    """Convert datetime to Unix timestamp."""
+    return dt.timestamp()
 
-    @staticmethod
-    def from_iso_format(iso_string: str) -> datetime:
-        """Parse ISO 8601 string to datetime."""
-        return datetime.fromisoformat(iso_string.replace('Z', '+00:00'))
 
-    @staticmethod
-    def add_seconds(dt: datetime, seconds: int) -> datetime:
-        """Add seconds to datetime."""
-        return dt + timedelta(seconds=seconds)
+def format_datetime(dt: datetime, format_str: str = "%Y-%m-%d %H:%M:%S") -> str:
+    """Format datetime to string."""
+    return dt.strftime(format_str)
 
-    @staticmethod
-    def add_minutes(dt: datetime, minutes: int) -> datetime:
-        """Add minutes to datetime."""
-        return dt + timedelta(minutes=minutes)
 
-    @staticmethod
-    def add_hours(dt: datetime, hours: int) -> datetime:
-        """Add hours to datetime."""
-        return dt + timedelta(hours=hours)
+def parse_datetime(dt_str: str, format_str: str = "%Y-%m-%d %H:%M:%S") -> datetime:
+    """Parse datetime string to datetime object."""
+    parsed = datetime.strptime(dt_str, format_str)
+    return parsed.replace(tzinfo=timezone.utc)
 
-    @staticmethod
-    def add_days(dt: datetime, days: int) -> datetime:
-        """Add days to datetime."""
-        return dt + timedelta(days=days)
 
-    @staticmethod
-    def time_ago(dt: datetime) -> str:
-        """Get human-readable time difference from now."""
-        now = TimeUtils.utc_now()
-        diff = now - TimeUtils.to_utc(dt)
+def add_hours(dt: datetime, hours: int) -> datetime:
+    """Add hours to datetime."""
+    return dt + timedelta(hours=hours)
 
-        if diff.total_seconds() < 60:
-            return "just now"
-        elif diff.total_seconds() < 3600:
-            minutes = int(diff.total_seconds() / 60)
-            return f"{minutes} minute{'s' if minutes != 1 else ''} ago"
-        elif diff.total_seconds() < 86400:
-            hours = int(diff.total_seconds() / 3600)
-            return f"{hours} hour{'s' if hours != 1 else ''} ago"
-        else:
-            days = int(diff.total_seconds() / 86400)
-            return f"{days} day{'s' if days != 1 else ''} ago"
 
-    @staticmethod
-    def is_expired(dt: datetime, ttl_seconds: int) -> bool:
-        """Check if datetime is expired based on TTL."""
-        expiry_time = dt + timedelta(seconds=ttl_seconds)
-        return TimeUtils.utc_now() > TimeUtils.to_utc(expiry_time)
+def add_days(dt: datetime, days: int) -> datetime:
+    """Add days to datetime."""
+    return dt + timedelta(days=days)
+
+
+def get_start_of_day(dt: Optional[datetime] = None) -> datetime:
+    """Get start of day (00:00:00) for given datetime or current UTC time."""
+    if dt is None:
+        dt = utc_now()
+    return dt.replace(hour=0, minute=0, second=0, microsecond=0)
+
+
+def get_end_of_day(dt: Optional[datetime] = None) -> datetime:
+    """Get end of day (23:59:59) for given datetime or current UTC time."""
+    if dt is None:
+        dt = utc_now()
+    return dt.replace(hour=23, minute=59, second=59, microsecond=999999)
+
+
+class Timer:
+    """Simple timer utility for measuring execution time."""
+
+    def __init__(self):
+        self.start_time = None
+        self.end_time = None
+
+    def start(self) -> 'Timer':
+        """Start the timer."""
+        self.start_time = time.perf_counter()
+        return self
+
+    def stop(self) -> float:
+        """Stop the timer and return elapsed time in seconds."""
+        if self.start_time is None:
+            raise RuntimeError("Timer not started")
+
+        self.end_time = time.perf_counter()
+        return self.elapsed_seconds
+
+    @property
+    def elapsed_seconds(self) -> float:
+        """Get elapsed time in seconds."""
+        if self.start_time is None:
+            return 0.0
+
+        end = self.end_time or time.perf_counter()
+        return end - self.start_time
+
+    @property
+    def elapsed_milliseconds(self) -> float:
+        """Get elapsed time in milliseconds."""
+        return self.elapsed_seconds * 1000
+
+    def __enter__(self) -> 'Timer':
+        """Context manager entry."""
+        return self.start()
+
+    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+        """Context manager exit."""
+        self.stop()

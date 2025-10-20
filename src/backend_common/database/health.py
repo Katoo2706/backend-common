@@ -1,111 +1,98 @@
-# src/backend_common/database/health.py
-"""
-Database health check utilities.
+"""Database health check functionality."""
 
-Provides health monitoring capabilities for database connections
-and performance metrics collection.
-"""
-
-import logging
-from datetime import datetime
-from typing import Dict, Any
-
+import time
 from sqlalchemy import text
-from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..models.health import HealthResponse, HealthStatus
-from .manager import DatabaseManager
-
-
-logger = logging.getLogger(__name__)
+from ..models import ServiceHealth, HealthStatus
+from .session import get_database_manager
 
 
-class DatabaseHealthChecker:
+async def check_database_health() -> ServiceHealth:
     """
-    Database health checker for monitoring database connectivity and performance.
+    Check database connectivity and performance.
 
-    Provides comprehensive health checks including connection tests,
-    query performance monitoring, and connection pool status.
+    Returns:
+        ServiceHealth: Database health status
     """
+    start_time = time.time()
 
-    def __init__(self, db_manager: DatabaseManager) -> None:
-        """
-        Initialize database health checker.
+    try:
+        db_manager = get_database_manager()
 
-        Args:
-            db_manager: Database manager instance to monitor
-        """
-        self.db_manager = db_manager
+        async with db_manager.get_session() as session:
+            # Simple connectivity test
+            await session.execute(text("SELECT 1"))
 
-    async def check_connection(self) -> HealthResponse:
-        """
-        Check basic database connectivity.
+        response_time = (time.time() - start_time) * 1000  # Convert to milliseconds
 
-        Returns:
-            HealthResponse: Health status of database connection
-        """
-        start_time = datetime.utcnow()
-
-        try:
-            async with self.db_manager.get_session() as session:
-                result = await session.execute(text("SELECT 1 as health_check"))
-                health_value = result.scalar()
-
-                if health_value == 1:
-                    status = HealthStatus.HEALTHY
-                    message = "Database connection successful"
-                else:
-                    status = HealthStatus.UNHEALTHY
-                    message = "Unexpected health check result"
-
-        except Exception as e:
+        # Determine status based on response time
+        if response_time < 100:
+            status = HealthStatus.HEALTHY
+            message = "Database is healthy"
+        elif response_time < 500:
+            status = HealthStatus.DEGRADED
+            message = f"Database response slow ({response_time:.1f}ms)"
+        else:
             status = HealthStatus.UNHEALTHY
-            message = f"Database connection failed: {str(e)}"
-            logger.warning(f"Database health check failed: {e}")
+            message = f"Database response very slow ({response_time:.1f}ms)"
 
-        end_time = datetime.utcnow()
-        response_time = (end_time - start_time).total_seconds()
-
-        return HealthResponse(
-            service_name="database",
+        return ServiceHealth(
+            name="database",
             status=status,
             message=message,
-            timestamp=end_time,
-            response_time=response_time,
+            response_time_ms=response_time,
         )
 
-    async def check_performance(self) -> Dict[str, Any]:
-        """
-        Check database performance metrics.
+    except Exception as e:
+        response_time = (time.time() - start_time) * 1000
 
-        Returns:
-            Dictionary containing performance metrics
-        """
-        try:
-            async with self.db_manager.get_session() as session:
-                # Check active connections
-                connections_result = await session.execute(
-                    text("SELECT count(*) FROM pg_stat_activity WHERE state = 'active'")
-                )
-                active_connections = connections_result.scalar()
+        return ServiceHealth(
+            name="database",
+            status=HealthStatus.UNHEALTHY,
+            message=f"Database connection failed: {str(e)}",
+            response_time_ms=response_time,
+        )
 
-                # Check database size
-                size_result = await session.execute(
-                    text("SELECT pg_database_size(current_database())")
-                )
-                db_size_bytes = size_result.scalar()
 
-                return {
-                    "active_connections": active_connections,
-                    "database_size_bytes": db_size_bytes,
-                    "database_size_mb": round(db_size_bytes / (1024 * 1024), 2) if db_size_bytes else 0,
-                }
+async def check_database_connection_pool() -> ServiceHealth:
+    """
+    Check database connection pool status.
 
-        except Exception as e:
-            logger.warning(f"Performance check failed: {e}")
-            return {
-                "active_connections": None,
-                "database_size_bytes": None,
-                "database_size_mb": None,
-                "error": str(e),
-            }
+    Returns:
+        ServiceHealth: Connection pool health status
+    """
+    try:
+        db_manager = get_database_manager()
+        engine = db_manager.engine
+
+        pool = engine.pool
+
+        # Calculate pool utilization safely
+        total_connections = pool.size() + pool.overflow()
+        if total_connections > 0:
+            utilization = pool.checkedout() / total_connections
+        else:
+            utilization = 0
+
+        if utilization < 0.7:
+            status = HealthStatus.HEALTHY
+            message = f"Connection pool healthy (utilization: {utilization:.1%})"
+        elif utilization < 0.9:
+            status = HealthStatus.DEGRADED
+            message = f"Connection pool under pressure (utilization: {utilization:.1%})"
+        else:
+            status = HealthStatus.UNHEALTHY
+            message = f"Connection pool exhausted (utilization: {utilization:.1%})"
+
+        return ServiceHealth(
+            name="database_pool",
+            status=status,
+            message=message,
+        )
+
+    except Exception as e:
+        return ServiceHealth(
+            name="database_pool",
+            status=HealthStatus.UNHEALTHY,
+            message=f"Failed to check connection pool: {str(e)}",
+        )

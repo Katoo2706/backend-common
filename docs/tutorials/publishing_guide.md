@@ -54,7 +54,7 @@ python -m build
 
 ```bash
 # Install the built package locally
-pip install dist/backend_common-0.1.0-py3-none-any.whl
+pip install dist/backend_common-0.0.1-py3-none-any.whl
 
 # Test import
 python -c "from backend_common import BaseError; print('Import successful!')"

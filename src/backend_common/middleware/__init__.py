@@ -6,9 +6,9 @@ Provides standardized middleware for logging, correlation IDs,
 authentication, and request/response processing.
 """
 
+from .auth import AuthMiddleware
 from .correlation import CorrelationMiddleware
 from .logging import LoggingMiddleware
-from .auth import AuthMiddleware
 
 __all__ = [
     "CorrelationMiddleware",

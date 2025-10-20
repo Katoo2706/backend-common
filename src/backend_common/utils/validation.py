@@ -1,6 +1,6 @@
 # src/backend_common/utils/validation.py
 """
-Validation utility functions for data validation and sanitization.
+Validation utilities for backend applications.
 
 Provides common validation patterns, input sanitization,
 and data format checking across all backend services.
@@ -9,199 +9,267 @@ and data format checking across all backend services.
 import re
 import uuid
 from typing import Any, Dict, List, Optional, Union
-from email_validator import validate_email, EmailNotValidError
+
+from email_validator import EmailNotValidError, validate_email
+
+from ..exceptions import ValidationError
 
 
-class ValidationUtils:
+def validate_email_address(email: str) -> str:
     """
-    Utility class for data validation and sanitization.
+    Validate email address format.
 
-    Provides common validation patterns for emails, UUIDs,
-    phone numbers, and other data formats.
+    Args:
+        email: Email address to validate
+
+    Returns:
+        str: Normalized email address
+
+    Raises:
+        ValidationError: If email format is invalid
     """
+    try:
+        # Validate and get normalized result
+        valid = validate_email(email)
+        return valid.email
+    except EmailNotValidError as e:
+        raise ValidationError(
+            message="Invalid email format",
+            field_errors={"email": str(e)},
+        )
 
-    # Common regex patterns
-    UUID_PATTERN = re.compile(
-        r'^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$',
-        re.IGNORECASE
-    )
-    PHONE_PATTERN = re.compile(r'^\+?1?\d{9,15}$')
-    USERNAME_PATTERN = re.compile(r'^[a-zA-Z0-9_-]{3,30}$')
-    PASSWORD_PATTERN = re.compile(r'^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[a-zA-Z\d@$!%*?&]{8,}$')
 
-    @staticmethod
-    def is_valid_email(email: str) -> bool:
-        """
-        Validate email address format.
+def validate_password_strength(password: str) -> bool:
+    """
+    Validate password strength.
 
-        Args:
-            email: Email address to validate
+    Requirements:
+    - At least 8 characters
+    - Contains uppercase letter
+    - Contains lowercase letter
+    - Contains number
+    - Contains special character
 
-        Returns:
-            bool: True if email is valid
-        """
-        try:
-            validate_email(email)
-            return True
-        except EmailNotValidError:
-            return False
+    Args:
+        password: Password to validate
 
-    @staticmethod
-    def is_valid_uuid(value: str) -> bool:
-        """
-        Validate UUID format.
+    Returns:
+        bool: True if password meets requirements
 
-        Args:
-            value: String to validate as UUID
+    Raises:
+        ValidationError: If password doesn't meet requirements
+    """
+    errors = []
 
-        Returns:
-            bool: True if valid UUID format
-        """
-        try:
-            uuid.UUID(value)
-            return True
-        except ValueError:
-            return False
+    if len(password) < 8:
+        errors.append("Password must be at least 8 characters long")
 
-    @staticmethod
-    def is_valid_phone(phone: str) -> bool:
-        """
-        Validate phone number format.
+    if not re.search(r"[A-Z]", password):
+        errors.append("Password must contain at least one uppercase letter")
 
-        Args:
-            phone: Phone number to validate
+    if not re.search(r"[a-z]", password):
+        errors.append("Password must contain at least one lowercase letter")
 
-        Returns:
-            bool: True if valid phone format
-        """
-        return bool(ValidationUtils.PHONE_PATTERN.match(phone))
+    if not re.search(r"\d", password):
+        errors.append("Password must contain at least one number")
 
-    @staticmethod
-    def is_valid_username(username: str) -> bool:
-        """
-        Validate username format.
+    if not re.search(r"[!@#$%^&*(),.?\":{}|<>]", password):
+        errors.append("Password must contain at least one special character")
 
-        Args:
-            username: Username to validate
+    if errors:
+        raise ValidationError(
+            message="Password does not meet security requirements",
+            field_errors={"password": "; ".join(errors)},
+        )
 
-        Returns:
-            bool: True if valid username format
-        """
-        return bool(ValidationUtils.USERNAME_PATTERN.match(username))
+    return True
 
-    @staticmethod
-    def is_strong_password(password: str) -> bool:
-        """
-        Validate password strength.
 
-        Args:
-            password: Password to validate
+def validate_username(username: str) -> str:
+    """
+    Validate username format.
 
-        Returns:
-            bool: True if password meets strength requirements
-        """
-        return bool(ValidationUtils.PASSWORD_PATTERN.match(password))
+    Requirements:
+    - 3-30 characters
+    - Alphanumeric and underscores only
+    - Cannot start with number or underscore
 
-    @staticmethod
-    def sanitize_string(value: str, max_length: Optional[int] = None) -> str:
-        """
-        Sanitize string input by removing dangerous characters.
+    Args:
+        username: Username to validate
 
-        Args:
-            value: String to sanitize
-            max_length: Maximum allowed length
+    Returns:
+        str: Validated username
 
-        Returns:
-            str: Sanitized string
-        """
-        if not isinstance(value, str):
-            return str(value)
+    Raises:
+        ValidationError: If username format is invalid
+    """
+    if not username:
+        raise ValidationError(
+            message="Username is required",
+            field_errors={"username": "Username cannot be empty"},
+        )
 
-        # Remove null bytes and control characters
-        sanitized = re.sub(r'[\x00-\x1f\x7f-\x9f]', '', value)
+    if len(username) < 3 or len(username) > 30:
+        raise ValidationError(
+            message="Invalid username length",
+            field_errors={"username": "Username must be 3-30 characters long"},
+        )
 
-        # Trim whitespace
-        sanitized = sanitized.strip()
+    if not re.match(r"^[a-zA-Z][a-zA-Z0-9_]*$", username):
+        raise ValidationError(
+            message="Invalid username format",
+            field_errors={
+                "username": "Username must start with a letter and contain only letters, numbers, and underscores"
+            },
+        )
 
-        # Truncate if max_length specified
-        if max_length and len(sanitized) > max_length:
-            sanitized = sanitized[:max_length]
+    return username.lower()
 
-        return sanitized
 
-    @staticmethod
-    def validate_pagination_params(page: int, size: int) -> Dict[str, Any]:
-        """
-        Validate pagination parameters.
+def validate_phone_number(phone: str, country_code: str = "US") -> str:
+    """
+    Validate phone number format.
 
-        Args:
-            page: Page number
-            size: Page size
+    Args:
+        phone: Phone number to validate
+        country_code: Country code for validation (default: US)
 
-        Returns:
-            dict: Validation result with errors if any
-        """
-        errors = []
+    Returns:
+        str: Normalized phone number
 
-        if page < 1:
-            errors.append("Page number must be greater than 0")
+    Raises:
+        ValidationError: If phone number format is invalid
+    """
+    # Remove all non-digit characters
+    digits_only = re.sub(r"\D", "", phone)
 
-        if size < 1:
-            errors.append("Page size must be greater than 0")
+    # Basic US phone number validation
+    if country_code == "US":
+        if len(digits_only) == 10:
+            # Format as (XXX) XXX-XXXX
+            return f"({digits_only[:3]}) {digits_only[3:6]}-{digits_only[6:]}"
+        elif len(digits_only) == 11 and digits_only[0] == "1":
+            # Remove leading 1 and format
+            digits_only = digits_only[1:]
+            return f"({digits_only[:3]}) {digits_only[3:6]}-{digits_only[6:]}"
+        else:
+            raise ValidationError(
+                message="Invalid phone number format",
+                field_errors={
+                    "phone": "Phone number must be 10 digits (or 11 with country code 1)"
+                },
+            )
 
-        if size > 100:
-            errors.append("Page size cannot exceed 100")
+    # For other countries, just return digits
+    return digits_only
 
-        return {
-            "valid": len(errors) == 0,
-            "errors": errors,
-        }
 
-    @staticmethod
-    def validate_required_fields(data: Dict[str, Any], required_fields: List[str]) -> Dict[str, Any]:
-        """
-        Validate that required fields are present and not empty.
+def validate_required_fields(data: Dict[str, Any], required_fields: List[str]) -> None:
+    """
+    Validate that required fields are present and not empty.
 
-        Args:
-            data: Data dictionary to validate
-            required_fields: List of required field names
+    Args:
+        data: Data dictionary to validate
+        required_fields: List of required field names
 
-        Returns:
-            dict: Validation result with missing fields if any
-        """
-        missing_fields = []
+    Raises:
+        ValidationError: If any required fields are missing or empty
+    """
+    missing_fields = []
+    empty_fields = []
 
-        for field in required_fields:
-            if field not in data or data[field] is None or data[field] == "":
-                missing_fields.append(field)
+    for field in required_fields:
+        if field not in data:
+            missing_fields.append(field)
+        elif data[field] is None or (isinstance(data[field], str) and not data[field].strip()):
+            empty_fields.append(field)
 
-        return {
-            "valid": len(missing_fields) == 0,
-            "missing_fields": missing_fields,
-        }
+    field_errors = {}
 
-    @staticmethod
-    def normalize_email(email: str) -> str:
-        """
-        Normalize email address to lowercase.
+    for field in missing_fields:
+        field_errors[field] = "This field is required"
 
-        Args:
-            email: Email address to normalize
+    for field in empty_fields:
+        field_errors[field] = "This field cannot be empty"
 
-        Returns:
-            str: Normalized email address
-        """
-        return email.lower().strip()
+    if field_errors:
+        raise ValidationError(
+            message="Required fields validation failed",
+            field_errors=field_errors,
+        )
 
-    @staticmethod
-    def normalize_phone(phone: str) -> str:
-        """
-        Normalize phone number by removing non-digit characters.
 
-        Args:
-            phone: Phone number to normalize
+def validate_string_length(
+    value: str,
+    field_name: str,
+    min_length: Optional[int] = None,
+    max_length: Optional[int] = None,
+) -> None:
+    """
+    Validate string length constraints.
 
-        Returns:
-            str: Normalized phone number
-        """
-        return re.sub(r'[^\d+]', '', phone)
+    Args:
+        value: String value to validate
+        field_name: Name of the field being validated
+        min_length: Minimum allowed length
+        max_length: Maximum allowed length
+
+    Raises:
+        ValidationError: If length constraints are not met
+    """
+    if not isinstance(value, str):
+        raise ValidationError(
+            message=f"{field_name} must be a string",
+            field_errors={field_name: "Expected string value"},
+        )
+
+    length = len(value)
+
+    if min_length is not None and length < min_length:
+        raise ValidationError(
+            message=f"{field_name} is too short",
+            field_errors={field_name: f"Must be at least {min_length} characters long"},
+        )
+
+    if max_length is not None and length > max_length:
+        raise ValidationError(
+            message=f"{field_name} is too long",
+            field_errors={field_name: f"Must be at most {max_length} characters long"},
+        )
+
+
+def validate_numeric_range(
+    value: Union[int, float],
+    field_name: str,
+    min_value: Optional[Union[int, float]] = None,
+    max_value: Optional[Union[int, float]] = None,
+) -> None:
+    """
+    Validate numeric value is within specified range.
+
+    Args:
+        value: Numeric value to validate
+        field_name: Name of the field being validated
+        min_value: Minimum allowed value
+        max_value: Maximum allowed value
+
+    Raises:
+        ValidationError: If value is outside specified range
+    """
+    if not isinstance(value, (int, float)):
+        raise ValidationError(
+            message=f"{field_name} must be a number",
+            field_errors={field_name: "Expected numeric value"},
+        )
+
+    if min_value is not None and value < min_value:
+        raise ValidationError(
+            message=f"{field_name} is too small",
+            field_errors={field_name: f"Must be at least {min_value}"},
+        )
+
+    if max_value is not None and value > max_value:
+        raise ValidationError(
+            message=f"{field_name} is too large",
+            field_errors={field_name: f"Must be at most {max_value}"},
+        )

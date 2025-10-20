@@ -7,14 +7,10 @@ to enable distributed tracing across microservices.
 """
 
 import uuid
-import logging
 from typing import Callable
 
 from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
-
-
-logger = logging.getLogger(__name__)
 
 
 class CorrelationMiddleware(BaseHTTPMiddleware):
@@ -43,7 +39,9 @@ class CorrelationMiddleware(BaseHTTPMiddleware):
         self.header_name = header_name
         self.generate_if_missing = generate_if_missing
 
-    async def dispatch(self, request: Request, call_next: Callable) -> Response:
+    async def dispatch(
+        self, request: Request, call_next: Callable
+    ) -> Response:
         """
         Process request and add correlation ID handling.
 
@@ -63,9 +61,6 @@ class CorrelationMiddleware(BaseHTTPMiddleware):
         if correlation_id:
             # Store correlation ID in request state for access in endpoints
             request.state.correlation_id = correlation_id
-
-            # Add to logging context
-            logger.info(f"Processing request with correlation ID: {correlation_id}")
 
         # Process request
         response = await call_next(request)

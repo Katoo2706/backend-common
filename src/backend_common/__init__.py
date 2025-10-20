@@ -3,63 +3,87 @@
 Backend Common - Shared utilities for Python backend services.
 
 This package provides common functionality for backend microservices including:
-- Exception handling
-- Authentication and authorization
-- HTTP client utilities
-- Database management
-- Logging utilities
-- Middleware components
+- Exception handling with standardized error responses
+- Database management with SQLAlchemy async support
+- Health monitoring and metrics collection
+- Pydantic models with validation
+- Utility functions for common operations
 """
 
 __version__ = "0.1.0"
-__author__ = "Your Team"
+__author__ = "Kato"
 
-from .exceptions import *
-from .auth import *
-from .http import *
-from .database import *
-from .middleware import *
-from .models import *
-from .utils import *
-from .config import *
+# Import all modules for easy access
+from . import database
+from . import exceptions
+from . import models
+from . import utils
+
+# Import commonly used classes and functions for direct access
+from .exceptions import (
+    BaseError,
+    ValidationError,
+    NotFoundError,
+    UnauthorizedError,
+    ForbiddenError,
+    BusinessLogicError,
+    AlreadyExistsError,
+    ExternalServiceError,
+    setup_exception_handlers,
+)
+
+from .models import (
+    BaseModel,
+    HealthResponse,
+    HealthStatus,
+    PaginationParams,
+    PaginatedResponse,
+    SQLAlchemyBase,
+    TimestampMixin,
+)
+
+from .database import (
+    DatabaseManager,
+    check_database_health,
+)
+
+from .utils import (
+    utc_now,
+    Timer,
+    validate_email_address,
+    validate_username,
+)
 
 __all__ = [
-    # Exceptions
+    # Modules
+    "database",
+    "exceptions",
+    "models",
+    "utils",
+    # Exception classes
     "BaseError",
+    "ValidationError",
     "NotFoundError",
     "UnauthorizedError",
-    "ValidationError",
+    "ForbiddenError",
     "BusinessLogicError",
-
-    # Auth
-    "AuthManager",
-    "JWTAuthManager",
-    "require_auth",
-    "require_service_auth",
-
-    # HTTP
-    "ServiceClient",
-    "HTTPClient",
-
-    # Database
-    "DatabaseManager",
-    "get_db_session",
-
-    # Middleware
-    "CorrelationMiddleware",
-    "LoggingMiddleware",
-    "AuthMiddleware",
-
-    # Models
+    "AlreadyExistsError",
+    "ExternalServiceError",
+    "setup_exception_handlers",
+    # Model classes
     "BaseModel",
     "HealthResponse",
+    "HealthStatus",
     "PaginationParams",
-
-    # Utils
-    "TimeUtils",
-    "ValidationUtils",
-
-    # Config
-    "BaseConfig",
-    "ServiceConfig",
+    "PaginatedResponse",
+    "SQLAlchemyBase",
+    "TimestampMixin",
+    # Database components
+    "DatabaseManager",
+    "check_database_health",
+    # Utility functions
+    "utc_now",
+    "Timer",
+    "validate_email_address",
+    "validate_username",
 ]

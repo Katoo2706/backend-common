@@ -1,95 +1,76 @@
 # src/backend_common/models/pagination.py
-"""
-Pagination models for consistent API responses.
-
-Provides standardized pagination parameters and response models
-for paginated endpoints across all services.
-"""
+"""Pagination models for API responses."""
 
 from typing import Generic, List, Optional, TypeVar
 from pydantic import Field, validator
 
 from .base import BaseModel
 
-
 T = TypeVar('T')
 
 
 class PaginationParams(BaseModel):
-    """
-    Standard pagination parameters for API endpoints.
+    """Query parameters for pagination."""
 
-    Provides consistent pagination behavior across all services
-    with configurable limits and validation.
-    """
-    page: int = Field(default=1, ge=1, description="Page number (1-based)")
-    size: int = Field(default=20, ge=1, le=100, description="Items per page")
-
-    @validator('size')
-    def validate_size(cls, v):
-        """Validate page size is within reasonable limits."""
-        if v > 100:
-            raise ValueError("Page size cannot exceed 100")
-        return v
+    page: int = Field(
+        default=1,
+        ge=1,
+        description="Page number (1-based)"
+    )
+    size: int = Field(
+        default=20,
+        ge=1,
+        le=100,
+        description="Number of items per page (max 100)"
+    )
 
     @property
     def offset(self) -> int:
-        """Calculate offset for database queries."""
+        """Calculate the offset for database queries."""
         return (self.page - 1) * self.size
 
     @property
     def limit(self) -> int:
-        """Get limit for database queries."""
+        """Get the limit for database queries."""
         return self.size
 
 
-class PaginatedResponse(BaseModel, Generic[T]):
-    """
-    Standard paginated response wrapper.
+class PaginationMeta(BaseModel):
+    """Pagination metadata."""
 
-    Provides consistent pagination metadata and data structure
-    for all paginated API responses.
-    """
-    items: List[T] = Field(description="List of items for current page")
-    total: int = Field(description="Total number of items")
     page: int = Field(description="Current page number")
-    size: int = Field(description="Items per page")
-    pages: int = Field(description="Total number of pages")
+    size: int = Field(description="Number of items per page")
+    total_items: int = Field(description="Total number of items")
+    total_pages: int = Field(description="Total number of pages")
+    has_previous: bool = Field(description="Whether there is a previous page")
+    has_next: bool = Field(description="Whether there is a next page")
+
+
+class PaginatedResponse(BaseModel, Generic[T]):
+    """Generic paginated response."""
+
+    items: List[T] = Field(description="List of items for current page")
+    pagination: PaginationMeta = Field(description="Pagination metadata")
 
     @classmethod
     def create(
         cls,
         items: List[T],
-        total: int,
-        pagination: PaginationParams,
-    ) -> "PaginatedResponse[T]":
-        """
-        Create paginated response from items and pagination params.
+        params: PaginationParams,
+        total_items: int
+    ) -> 'PaginatedResponse[T]':
+        """Create a paginated response."""
+        import math
 
-        Args:
-            items: List of items for current page
-            total: Total number of items across all pages
-            pagination: Pagination parameters used
+        total_pages = math.ceil(total_items / params.size) if total_items > 0 else 0
 
-        Returns:
-            PaginatedResponse with calculated metadata
-        """
-        pages = (total + pagination.size - 1) // pagination.size  # Ceiling division
-
-        return cls(
-            items=items,
-            total=total,
-            page=pagination.page,
-            size=pagination.size,
-            pages=pages,
+        pagination = PaginationMeta(
+            page=params.page,
+            size=params.size,
+            total_items=total_items,
+            total_pages=total_pages,
+            has_previous=params.page > 1,
+            has_next=params.page < total_pages
         )
 
-    @property
-    def has_next(self) -> bool:
-        """Check if there are more pages after current."""
-        return self.page < self.pages
-
-    @property
-    def has_previous(self) -> bool:
-        """Check if there are pages before current."""
-        return self.page > 1
+        return cls(items=items, pagination=pagination)
