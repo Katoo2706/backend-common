@@ -10,7 +10,7 @@ This package provides common functionality for backend microservices including:
 - Utility functions for common operations
 """
 
-__version__ = "0.1.0"
+__version__ = "0.0.3"
 __author__ = "Kato"
 
 # Import all modules for easy access
@@ -44,7 +44,6 @@ from .models import (
 
 from .database import (
     DatabaseManager,
-    check_database_health,
 )
 
 from .utils import (
@@ -80,7 +79,6 @@ __all__ = [
     "TimestampMixin",
     # Database components
     "DatabaseManager",
-    "check_database_health",
     # Utility functions
     "utc_now",
     "Timer",

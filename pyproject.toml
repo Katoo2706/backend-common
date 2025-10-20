@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "backend_common_kato"
-version = "0.0.2"
+version = "0.0.3"
 description = "Shared common utilities for Python backend services"
 readme = "README.md"
 requires-python = ">=3.12"
